@@ -25,7 +25,7 @@ Colour::Colour(std::uint8_t r, std::uint8_t g, std::uint8_t b)
 }
 
 Colour::Colour(std::uint32_t colour)
-    : Colour((colour >> 16) & 0xff, (colour >> 7) & 0xff, colour & 0xff)
+    : Colour((colour >> 16) & 0xff, (colour >> 8) & 0xff, colour & 0xff)
 {
 }
 
