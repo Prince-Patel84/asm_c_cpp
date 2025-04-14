@@ -2,8 +2,6 @@
 
 <div align="center">
 
-![Game Banner](./Game.png)
-
 [![C++](https://img.shields.io/badge/C%2B%2B-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com/)
 [![SDL2](https://img.shields.io/badge/SDL2-FFD700?style=for-the-badge&logo=SDL&logoColor=black)](https://www.libsdl.org/)
 [![CMake](https://img.shields.io/badge/CMake-064F8C?style=for-the-badge&logo=cmake&logoColor=white)](https://cmake.org/)
@@ -54,9 +52,9 @@ A classic arcade-style BreakOut game built with modern C++ and SDL2. Break all t
 
 | Color | Hits Required | Points |
 |-------|---------------|--------|
-| 🟢 Green | 1 | 10 |
-| 🟠 Orange | 2 | 20 |
-| 🔴 Red | 3 | 30 |
+| 🟢 Green | 1 | 100 |
+| 🟠 Orange | 2 | 200 |
+| 🔴 Red | 3 | 300 |
 
 ## 🎯 Game Mechanics
 
@@ -75,6 +73,31 @@ graph TD
     B -->|Ball Lost| D[Game Over]
     C -->|Space| A
     D -->|Space| A
+    
+    subgraph Title Screen
+    A1[Show High Score]
+    A2[Animated Title]
+    A3[Press Space Prompt]
+    end
+    
+    subgraph Playing
+    B1[Move Paddle]
+    B2[Ball Physics]
+    B3[Break Bricks]
+    B4[Update Score]
+    B5[Increase Ball Speed]
+    end
+    
+    subgraph Win Screen
+    C1[Show Final Score]
+    C2[Update High Score]
+    C3[Victory Message]
+    end
+    
+    subgraph Game Over
+    D1[Show Final Score]
+    D2[Game Over Message]
+    end
 ```
 
 ## 📁 Project Structure
@@ -157,11 +180,17 @@ cmake --build .
 - [ ] 💖 Lives system
 - [ ] 🎨 Custom themes
 
-## 📜 License
+## 👥 Team Motion Minds
 
 <div align="center">
 
-[![License](https://img.shields.io/badge/License-Boost_1.0-lightblue.svg?style=for-the-badge)](https://www.boost.org/LICENSE_1_0.txt)
+### 🎮 Game Development Team
+
+| Name | Student ID |
+|------|------------|
+| Prince Patel | 202401151 |
+| Vishwa Prajapati | 202401163 |
+| Dhruv Patel | 202401142 |
 
 Built with 💖 and lots of 🎮
 </div>
