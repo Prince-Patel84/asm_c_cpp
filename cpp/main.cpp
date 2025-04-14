@@ -8,6 +8,8 @@
 #include <ranges>
 #include <cmath>
 #include <string>
+#include <fstream>
+#include <algorithm>
 
 #include "colour.h"
 #include "entity.h"
@@ -33,6 +35,8 @@ const float ANIMATION_SPEED = 0.05f;
 // Add these near other global variables
 int current_score = 0;
 const int BRICK_POINTS = 100;  // Points per brick destroyed
+int high_score = 0;
+const std::string HIGH_SCORE_FILE = "highscore.txt";
 
 /**
  * Helper function to create a row of 10 bricks.
@@ -284,11 +288,40 @@ bool check_win_condition(const std::vector<cpp::Entity> &entities)
     return entities.size() <= 2;
 }
 
+// Helper function to load high score
+void load_high_score() {
+    std::ifstream file(HIGH_SCORE_FILE);
+    if (file.is_open()) {
+        file >> high_score;
+        file.close();
+    }
+}
+
+// Helper function to save high score
+void save_high_score() {
+    std::ofstream file(HIGH_SCORE_FILE);
+    if (file.is_open()) {
+        file << high_score;
+        file.close();
+    }
+}
+
+// Helper function to update high score
+void update_high_score() {
+    if (current_score > high_score) {
+        high_score = current_score;
+        save_high_score();
+    }
+}
+
 }
 
 int main()
 {
     std::cout << "hello world\n";
+
+    // Load high score at startup
+    load_high_score();
 
     const cpp::Window window{};
     auto running = true;
@@ -384,8 +417,10 @@ int main()
         {
             case GameState::TITLE_SCREEN:
             {
-                // Render animated title screen with game entities in background
                 render_title_screen(window, title_animation_time, entities);
+                // Add high score display on title screen
+                std::string high_score_text = "High Score: " + std::to_string(high_score);
+                window.render_text(high_score_text, 300, 600, 36, 0xFFD700); // Gold color
                 break;
             }
             case GameState::PLAYING:
@@ -425,35 +460,47 @@ int main()
                 // Render game entities
                 window.render(entities);
 
-                // Render score at top of screen
+                // Display both current score and high score
                 std::string score_text = "Score: " + std::to_string(current_score);
-                window.render_text(score_text, 10, 10, 24, 0xFFFFFF);  // White color
+                window.render_text(score_text, 10, 10, 24, 0xFFFFFF);
+                std::string high_score_text = "High Score: " + std::to_string(high_score);
+                window.render_text(high_score_text, 600, 10, 24, 0xFFD700);
                 break;
             }
             case GameState::GAME_OVER:
             {
-                // Render game entities in background
                 window.render(entities);
-                
-                // Render game over screen with final score
                 window.render_text("Game Over!", 200, 250, 72);
+                
+                // Update high score before displaying
+                update_high_score();
+                
                 std::string final_score = "Final Score: " + std::to_string(current_score);
-                window.render_text(final_score, 200, 350, 48, 0xFFFF00);  // Yellow color
+                window.render_text(final_score, 200, 350, 48, 0xFFFF00);
+                
+                // Display high score
+                std::string high_score_text = "High Score: " + std::to_string(high_score);
+                window.render_text(high_score_text, 200, 400, 48, 0xFFD700);
+                
                 window.render_text("Press Space to Restart", 200, 450, 36);
                 break;
             }
             case GameState::WIN:
             {
-                // Render game entities in background
                 window.render(entities);
-                
-                // Semi-transparent overlay
                 window.render_overlay(0x000000, 180);
-
-                // Render win screen with final score
-                window.render_text("YOU WIN!", 200, 250, 72, 0x00FF00);  // Green color
+                window.render_text("YOU WIN!", 200, 250, 72, 0x00FF00);
+                
+                // Update high score before displaying
+                update_high_score();
+                
                 std::string final_score = "Final Score: " + std::to_string(current_score);
-                window.render_text(final_score, 200, 350, 48, 0xFFFF00);  // Yellow color
+                window.render_text(final_score, 200, 350, 48, 0xFFFF00);
+                
+                // Display high score
+                std::string high_score_text = "High Score: " + std::to_string(high_score);
+                window.render_text(high_score_text, 200, 400, 48, 0xFFD700);
+                
                 window.render_text("Press Space to Play Again", 180, 450, 36, 0xFFFFFF);
                 break;
             }
