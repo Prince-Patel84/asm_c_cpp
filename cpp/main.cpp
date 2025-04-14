@@ -143,6 +143,35 @@ void update_paddle(cpp::Entity &paddle, const cpp::Vector2 &velocity)
     paddle.translate(velocity);
 }
 
+/**
+ * Helper function to check if the game is over (ball falls below paddle)
+ *
+ * @param ball
+ *   Ball entity to check position
+ *
+ * @returns
+ *   True if game is over, false otherwise
+ */
+bool is_game_over(const cpp::Entity &ball)
+{
+    return ball.rectangle().position.y > 800.0f;
+}
+
+/**
+ * Helper function to reset the ball to initial position
+ *
+ * @param ball
+ *   Ball entity to reset
+ *
+ * @param ball_velocity
+ *   Ball velocity to reset
+ */
+void reset_ball(cpp::Entity &ball, cpp::Vector2 &ball_velocity)
+{
+    ball = cpp::Entity{{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF};
+    ball_velocity = cpp::Vector2{0.0f, 1.0f};
+}
+
 }
 
 int main()
@@ -168,6 +197,8 @@ int main()
     auto left_press = false;
     auto right_press = false;
 
+    bool game_over = false;
+
     while (running)
     {
         for (;;)
@@ -189,6 +220,16 @@ int main()
                 {
                     right_press = (event->key_state == DOWN) ? true : false;
                 }
+                // Add space key to restart game
+                else if ((event->key_state == DOWN) && (event->key == SPACE))
+                {
+                    if (game_over)
+                    {
+                        game_over = false;
+                        // Reset ball position and velocity
+                        reset_ball(entities[1], ball_velocity);
+                    }
+                }
             }
             else
             {
@@ -196,30 +237,39 @@ int main()
             }
         }
 
-        if ((left_press && right_press) || (!left_press && !right_press))
+        // Only update game state if not game over
+        if (!game_over)
         {
-            paddle_velocity.x = 0.0f;
-        }
-        else if (left_press)
-        {
-            paddle_velocity.x = -paddle_speed;
-        }
-        else if (right_press)
-        {
-            paddle_velocity.x = paddle_speed;
+            if ((left_press && right_press) || (!left_press && !right_press))
+            {
+                paddle_velocity.x = 0.0f;
+            }
+            else if (left_press)
+            {
+                paddle_velocity.x = -paddle_speed;
+            }
+            else if (right_press)
+            {
+                paddle_velocity.x = paddle_speed;
+            }
+
+            {
+                auto &paddle = entities[0];
+                auto &ball = entities[1];
+
+                update_paddle(paddle, paddle_velocity);
+                update_ball(ball, ball_velocity);
+                check_collisions(ball, ball_velocity, paddle, entities);
+
+                // Check for game over condition
+                if (is_game_over(ball))
+                {
+                    game_over = true;
+                }
+            }
         }
 
-        // scope the references to the paddle and ball, if check_collisions results in an entity being removed then
-        // that will invalidate our references, so prevent them from being accidentally used later
-        {
-            auto &paddle = entities[0];
-            auto &ball = entities[1];
-
-            update_paddle(paddle, paddle_velocity);
-            update_ball(ball, ball_velocity);
-            check_collisions(ball, ball_velocity, paddle, entities);
-        }
-
+        // Always render the current state
         window.render(entities);
     }
 

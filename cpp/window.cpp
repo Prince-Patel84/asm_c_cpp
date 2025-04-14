@@ -37,6 +37,7 @@ std::optional<cpp::Key> map_sdl_key(SDL_Keycode sdl_code)
         case SDLK_ESCAPE: return ESCAPE;
         case SDLK_LEFT: return LEFT;
         case SDLK_RIGHT: return RIGHT;
+        case SDLK_SPACE: return SPACE;
         default: return std::nullopt;
     }
 }

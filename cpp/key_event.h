@@ -26,6 +26,7 @@ enum class Key
     ESCAPE,
     LEFT,
     RIGHT,
+    SPACE,
 };
 
 /**
