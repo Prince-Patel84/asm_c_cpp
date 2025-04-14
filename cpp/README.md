@@ -1,4 +1,4 @@
-# 🎮 Brick Breaker Game
+# 🎮 BreakOut Game
 
 <div align="center">
 
@@ -11,14 +11,35 @@
 
 ## 📝 Description
 
-A classic arcade-style Brick Breaker game built with modern C++ and SDL2. Break all the bricks with your ball while controlling the paddle to prevent the ball from falling!
+A classic arcade-style BreakOut game built with modern C++ and SDL2. Break all the bricks with your ball while controlling the paddle to prevent the ball from falling! Features multiple brick types, progressive difficulty, and high score tracking.
+
+## 🖼️ Game Screens
+
+<div align="center">
+
+### 🎮 Start Screen
+![Start Screen](./screenshots/start_screen.png)
+
+### 🎲 Playing Screen
+![Playing Screen](./screenshots/playing_screen.png)
+
+### 🏆 Win Screen
+![Win Screen](./screenshots/win_screen.png)
+
+### ❌ Game Over Screen
+![Game Over Screen](./screenshots/game_over_screen.png)
+
+</div>
 
 ## 🎯 Game Features
 
 - 🏓 Smooth paddle controls
-- 🔴 Colorful brick layouts
-- ⚡ Dynamic ball physics
-- 🎨 Clean visual design
+- 🔴 Multiple brick types with different hit points
+- ⚡ Dynamic ball physics with speed progression
+- 🎨 Clean visual design with animations
+- 🏆 Score system and high score tracking
+- 🎮 Multiple game states (Title, Playing, Win, Game Over)
+- 💾 Persistent high score storage
 
 ## 🎮 Controls
 
@@ -26,17 +47,34 @@ A classic arcade-style Brick Breaker game built with modern C++ and SDL2. Break 
 |-----|--------|
 | ⬅️ Left Arrow | Move paddle left |
 | ➡️ Right Arrow | Move paddle right |
+| ⏎ Space | Start/Restart game |
 | ❌ Escape | Exit game |
 
-## 🔄 Game Loop Overview
+## 🧱 Brick Types
+
+| Color | Hits Required | Points |
+|-------|---------------|--------|
+| 🟢 Green | 1 | 10 |
+| 🟠 Orange | 2 | 20 |
+| 🔴 Red | 3 | 30 |
+
+## 🎯 Game Mechanics
+
+- Ball speed increases as bricks are destroyed
+- Different brick types require multiple hits
+- Score based on brick type and destruction
+- High score persistence between sessions
+- Dynamic paddle collision angles
+
+## 🔄 Game States
 
 ```mermaid
 graph TD
-    A[Start Game] --> B[Process Input]
-    B --> C[Update Game State]
-    C --> D[Handle Collisions]
-    D --> E[Render Frame]
-    E --> B
+    A[Title Screen] -->|Space| B[Playing]
+    B -->|All Bricks Destroyed| C[Win Screen]
+    B -->|Ball Lost| D[Game Over]
+    C -->|Space| A
+    D -->|Space| A
 ```
 
 ## 📁 Project Structure
@@ -82,6 +120,8 @@ cmake --build .
 2. 🏓 Use left and right arrows to move the paddle
 3. 🎯 Bounce the ball to break all bricks
 4. 🏆 Try to clear all bricks without losing the ball
+5. 📊 Score points based on brick type
+6. 💾 Beat your high score!
 
 ## 🔧 Technical Implementation
 
@@ -89,19 +129,33 @@ cmake --build .
 - Accurate ball bouncing mechanics
 - Precise collision detection
 - Dynamic paddle reflection angles
+- Progressive ball speed system
 
 ### Rendering Engine 🎨
 - Hardware-accelerated graphics
 - Smooth animations
 - Efficient frame rendering
+- Dynamic color transitions
+
+### Game State Management 🎮
+- Title screen with animations
+- Playing state with score display
+- Win condition with final score
+- Game over state with restart option
+
+### Score System 📊
+- Points based on brick type
+- High score tracking
+- Persistent storage
+- Visual score display
 
 ## 🛠️ Future Enhancements
 
-- [ ] 🏆 Score system
-- [ ] 🎵 Sound effects
-- [ ] ⭐ Power-ups
+- [ ] 🔊 Sound effects
 - [ ] 🎯 Multiple levels
-- [ ] 📊 High score board
+- [ ] ⚡ Power-ups
+- [ ] 💖 Lives system
+- [ ] 🎨 Custom themes
 
 ## 📜 License
 
