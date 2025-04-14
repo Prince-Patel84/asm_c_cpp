@@ -10,8 +10,10 @@
 #include <optional>
 #include <stdexcept>
 #include <vector>
+#include <string>
 
 #include "SDL.h"
+#include "SDL_ttf.h"
 
 #include "entity.h"
 #include "key_event.h"
@@ -50,10 +52,16 @@ namespace cpp
 Window::Window()
     : window_(nullptr, &SDL_DestroyWindow)
     , renderer_(nullptr, &SDL_DestroyRenderer)
+    , font_(nullptr, &TTF_CloseFont)
 {
     if (::SDL_Init(SDL_INIT_VIDEO) != 0)
     {
         throw std::runtime_error("failed to init SDL");
+    }
+
+    if (::TTF_Init() != 0)
+    {
+        throw std::runtime_error("failed to init SDL_ttf");
     }
 
     window_.reset(
@@ -67,6 +75,13 @@ Window::Window()
     if (!renderer_)
     {
         throw std::runtime_error("failed to create renderer");
+    }
+
+    // Load font from resources directory
+    font_.reset(::TTF_OpenFont("resources/MinecraftTen-VGORe.ttf", 48));
+    if (!font_)
+    {
+        throw std::runtime_error("failed to load font");
     }
 }
 
@@ -104,16 +119,6 @@ std::optional<KeyEvent> Window::get_event() const
 
 void Window::render(const std::vector<Entity> &entities) const
 {
-    if (::SDL_SetRenderDrawColor(renderer_.get(), 0x0, 0x0, 0x0, 0xff) != 0)
-    {
-        throw std::runtime_error("failed to set render draw colour");
-    }
-
-    if (::SDL_RenderClear(renderer_.get()) != 0)
-    {
-        throw std::runtime_error("failed to clear renderer");
-    }
-
     for (const auto &entity : entities)
     {
         const auto entity_rect = entity.rectangle();
@@ -136,8 +141,80 @@ void Window::render(const std::vector<Entity> &entities) const
             throw std::runtime_error("failed to draw filled rect");
         }
     }
+}
 
+void Window::render_text(const std::string& text, int x, int y, int size) const
+{
+    // Default to white color
+    render_text(text, x, y, size, 0xFFFFFF);
+}
+
+void Window::render_text(const std::string& text, int x, int y, int size, uint32_t color) const
+{
+    TTF_Font* temp_font = TTF_OpenFont("resources/MinecraftTen-VGORe.ttf", size);
+    if (!temp_font)
+    {
+        return;
+    }
+
+    SDL_Color sdl_color = {
+        static_cast<Uint8>((color >> 16) & 0xFF),  // R
+        static_cast<Uint8>((color >> 8) & 0xFF),   // G
+        static_cast<Uint8>(color & 0xFF),          // B
+        255                                         // A
+    };
+
+    SDL_Surface* surface = TTF_RenderText_Solid(temp_font, text.c_str(), sdl_color);
+    TTF_CloseFont(temp_font);
+
+    if (!surface)
+    {
+        return;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_.get(), surface);
+    SDL_FreeSurface(surface);
+
+    if (!texture)
+    {
+        return;
+    }
+
+    SDL_Rect dest = {x, y, surface->w, surface->h};
+    SDL_RenderCopy(renderer_.get(), texture, NULL, &dest);
+    SDL_DestroyTexture(texture);
+}
+
+void Window::clear() const
+{
+    if (::SDL_SetRenderDrawColor(renderer_.get(), 0x0, 0x0, 0x0, 0xff) != 0)
+    {
+        throw std::runtime_error("failed to set render draw colour");
+    }
+
+    if (::SDL_RenderClear(renderer_.get()) != 0)
+    {
+        throw std::runtime_error("failed to clear renderer");
+    }
+}
+
+void Window::present() const
+{
     ::SDL_RenderPresent(renderer_.get());
+}
+
+void Window::render_overlay(uint32_t color, uint8_t alpha) const
+{
+    SDL_SetRenderDrawBlendMode(renderer_.get(), SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer_.get(),
+        static_cast<Uint8>((color >> 16) & 0xFF),  // R
+        static_cast<Uint8>((color >> 8) & 0xFF),   // G
+        static_cast<Uint8>(color & 0xFF),          // B
+        alpha);
+    
+    SDL_Rect fullscreen = {0, 0, 800, 800};
+    SDL_RenderFillRect(renderer_.get(), &fullscreen);
+    SDL_SetRenderDrawBlendMode(renderer_.get(), SDL_BLENDMODE_NONE);
 }
 
 }

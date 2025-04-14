@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <ranges>
+#include <cmath>
 
 #include "colour.h"
 #include "entity.h"
@@ -16,6 +17,16 @@
 
 namespace
 {
+
+enum class GameState
+{
+    TITLE_SCREEN,
+    PLAYING,
+    GAME_OVER
+};
+
+float title_animation_time = 0.0f;
+const float ANIMATION_SPEED = 0.05f;
 
 /**
  * Helper function to create a row of 10 bricks.
@@ -172,6 +183,78 @@ void reset_ball(cpp::Entity &ball, cpp::Vector2 &ball_velocity)
     ball_velocity = cpp::Vector2{0.0f, 1.0f};
 }
 
+/**
+ * Helper function to reset the paddle to initial position
+ *
+ * @param paddle
+ *   Paddle entity to reset
+ *
+ * @param paddle_velocity
+ *   Paddle velocity to reset
+ */
+void reset_paddle(cpp::Entity &paddle, cpp::Vector2 &paddle_velocity)
+{
+    paddle = cpp::Entity{{{300.0f, 780.0f}, 300.0f, 20.0f}, 0xFFFFFF};
+    paddle_velocity = cpp::Vector2{0.0f, 0.0f};
+}
+
+/**
+ * Helper function to render the animated title screen
+ *
+ * @param window
+ *   Window to render to
+ *
+ * @param animation_time
+ *   Current animation time
+ */
+void render_title_screen(const cpp::Window& window, float& animation_time, const std::vector<cpp::Entity> &entities)
+{
+    // Update animation time
+    animation_time += ANIMATION_SPEED;
+    
+    // Render game entities in background with dimmed effect
+    window.render(entities);
+    
+    // Semi-transparent overlay to dim the background
+    window.render_overlay(0x000000, 180);  // Black with alpha 180 (partially transparent)
+    
+    // Rainbow colors for BREAKOUT letters
+    const uint32_t colors[] = {
+        0xFF0000,  // Red
+        0xFF7F00,  // Orange
+        0xFFFF00,  // Yellow
+        0x00FF00,  // Green
+        0x0000FF,  // Blue
+        0x4B0082,  // Indigo
+        0x9400D3,  // Violet
+        0xFF1493   // Pink
+    };
+    
+    // Render each letter of BREAKOUT with different colors and offsets
+    const char* letters = "BREAKOUT";
+    int base_x = 150;
+    int letter_spacing = 70;
+    
+    for (int i = 0; letters[i] != '\0'; i++)
+    {
+        char letter[2] = {letters[i], '\0'};
+        float letter_offset = std::sin(animation_time + i * 0.5f) * 15.0f;
+        window.render_text(letter, 
+                         base_x + i * letter_spacing, 
+                         200 + static_cast<int>(letter_offset), 
+                         100, 
+                         colors[i % 8]);
+    }
+
+    // Only show the essential text with pulsing effect
+    float scale = 1.0f + std::sin(animation_time * 2.0f) * 0.1f;
+    window.render_text("Press SPACE to Start", 
+                      200, 
+                      500 + static_cast<int>(std::sin(animation_time) * 20.0f), 
+                      48, 
+                      0x00FF00);  // Green
+}
+
 }
 
 int main()
@@ -180,6 +263,9 @@ int main()
 
     const cpp::Window window{};
     auto running = true;
+
+    // Initialize game state to title screen
+    GameState game_state = GameState::TITLE_SCREEN;
 
     std::vector<cpp::Entity> entities{
         {{{300.0f, 780.0f}, 300.0f, 20.0f}, 0xFFFFFF}, {{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF}};
@@ -197,8 +283,6 @@ int main()
     auto left_press = false;
     auto right_press = false;
 
-    bool game_over = false;
-
     while (running)
     {
         for (;;)
@@ -212,22 +296,36 @@ int main()
                 {
                     running = false;
                 }
-                else if (event->key == LEFT)
-                {
-                    left_press = (event->key_state == DOWN) ? true : false;
-                }
-                else if (event->key == RIGHT)
-                {
-                    right_press = (event->key_state == DOWN) ? true : false;
-                }
-                // Add space key to restart game
                 else if ((event->key_state == DOWN) && (event->key == SPACE))
                 {
-                    if (game_over)
+                    if (game_state == GameState::TITLE_SCREEN)
                     {
-                        game_over = false;
-                        // Reset ball position and velocity
+                        game_state = GameState::PLAYING;
+                        // Reset everything when starting from title screen
                         reset_ball(entities[1], ball_velocity);
+                        reset_paddle(entities[0], paddle_velocity);
+                        left_press = false;   // Reset movement states
+                        right_press = false;
+                    }
+                    else if (game_state == GameState::GAME_OVER)
+                    {
+                        game_state = GameState::PLAYING;
+                        // Reset everything when restarting after game over
+                        reset_ball(entities[1], ball_velocity);
+                        reset_paddle(entities[0], paddle_velocity);
+                        left_press = false;   // Reset movement states
+                        right_press = false;
+                    }
+                }
+                else if (game_state == GameState::PLAYING)
+                {
+                    if (event->key == LEFT)
+                    {
+                        left_press = (event->key_state == DOWN) ? true : false;
+                    }
+                    else if (event->key == RIGHT)
+                    {
+                        right_press = (event->key_state == DOWN) ? true : false;
                     }
                 }
             }
@@ -237,43 +335,67 @@ int main()
             }
         }
 
-        // Only update game state if not game over
-        if (!game_over)
+        // Clear screen at start of frame
+        window.clear();
+
+        switch (game_state)
         {
-            if ((left_press && right_press) || (!left_press && !right_press))
+            case GameState::TITLE_SCREEN:
             {
-                paddle_velocity.x = 0.0f;
+                // Render animated title screen with game entities in background
+                render_title_screen(window, title_animation_time, entities);
+                break;
             }
-            else if (left_press)
+            case GameState::PLAYING:
             {
-                paddle_velocity.x = -paddle_speed;
-            }
-            else if (right_press)
-            {
-                paddle_velocity.x = paddle_speed;
-            }
-
-            {
-                auto &paddle = entities[0];
-                auto &ball = entities[1];
-
-                update_paddle(paddle, paddle_velocity);
-                update_ball(ball, ball_velocity);
-                check_collisions(ball, ball_velocity, paddle, entities);
-
-                // Check for game over condition
-                if (is_game_over(ball))
+                // Update game state
+                if ((left_press && right_press) || (!left_press && !right_press))
                 {
-                    game_over = true;
+                    paddle_velocity.x = 0.0f;
                 }
+                else if (left_press)
+                {
+                    paddle_velocity.x = -paddle_speed;
+                }
+                else if (right_press)
+                {
+                    paddle_velocity.x = paddle_speed;
+                }
+
+                {
+                    auto &paddle = entities[0];
+                    auto &ball = entities[1];
+
+                    update_paddle(paddle, paddle_velocity);
+                    update_ball(ball, ball_velocity);
+                    check_collisions(ball, ball_velocity, paddle, entities);
+
+                    if (is_game_over(ball))
+                    {
+                        game_state = GameState::GAME_OVER;
+                    }
+                }
+
+                // Render game entities
+                window.render(entities);
+                break;
+            }
+            case GameState::GAME_OVER:
+            {
+                // Render game entities in background
+                window.render(entities);
+                
+                // Render game over screen
+                window.render_text("Game Over!", 200, 300, 72);
+                window.render_text("Press Space to Restart", 200, 400, 36);
+                break;
             }
         }
 
-        // Always render the current state
-        window.render(entities);
+        // Present the frame
+        window.present();
     }
 
     std::cout << "goodbye\n";
-
     return 0;
 }
