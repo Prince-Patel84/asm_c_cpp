@@ -63,7 +63,7 @@ graph TD
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Prince-Patel84/asm_c_cpp
+git clone https://github.com/Prince-Patel84/asm_c_cpp/tree/develop/cpp
 
 # 2. Create build directory
 mkdir build
