@@ -7,6 +7,7 @@
 #include <iostream>
 #include <ranges>
 #include <cmath>
+#include <string>
 
 #include "colour.h"
 #include "entity.h"
@@ -22,11 +23,16 @@ enum class GameState
 {
     TITLE_SCREEN,
     PLAYING,
-    GAME_OVER
+    GAME_OVER,
+    WIN
 };
 
 float title_animation_time = 0.0f;
 const float ANIMATION_SPEED = 0.05f;
+
+// Add these near other global variables
+int current_score = 0;
+const int BRICK_POINTS = 100;  // Points per brick destroyed
 
 /**
  * Helper function to create a row of 10 bricks.
@@ -80,18 +86,18 @@ void check_collisions(
 
         if (ball_pos.x < paddle_pos.x + 100.0f)
         {
-            ball_velocity.x = -0.7f;
-            ball_velocity.y = -0.7f;
+            ball_velocity.x = -1.4f;
+            ball_velocity.y = -1.4f;
         }
         else if (ball_pos.x < paddle_pos.x + 200.0f)
         {
             ball_velocity.x = 0.0f;
-            ball_velocity.y = -1.0f;
+            ball_velocity.y = -2.0f;
         }
         else
         {
-            ball_velocity.x = 0.7f;
-            ball_velocity.y = -0.7f;
+            ball_velocity.x = 1.4f;
+            ball_velocity.y = -1.4f;
         }
     }
     else
@@ -106,7 +112,9 @@ void check_collisions(
 
         if (hit_brick != std::ranges::end(bricks_view))
         {
-            // we hit a brick so update ball velocity and remove brick entity
+            // Add score when brick is destroyed
+            current_score += BRICK_POINTS;
+            
             ball_velocity.y *= -1.0f;
             entities.erase(hit_brick);
         }
@@ -180,7 +188,7 @@ bool is_game_over(const cpp::Entity &ball)
 void reset_ball(cpp::Entity &ball, cpp::Vector2 &ball_velocity)
 {
     ball = cpp::Entity{{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF};
-    ball_velocity = cpp::Vector2{0.0f, 1.0f};
+    ball_velocity = cpp::Vector2{0.0f, 2.0f};
 }
 
 /**
@@ -255,6 +263,27 @@ void render_title_screen(const cpp::Window& window, float& animation_time, const
                       0x00FF00);  // Green
 }
 
+// Add this helper function to reset score
+void reset_score()
+{
+    current_score = 0;
+}
+
+/**
+ * Helper function to check if all bricks are destroyed
+ *
+ * @param entities
+ *   Collection of all entities
+ *
+ * @returns
+ *   True if no bricks remain, false otherwise
+ */
+bool check_win_condition(const std::vector<cpp::Entity> &entities)
+{
+    // Skip first two entities (paddle and ball)
+    return entities.size() <= 2;
+}
+
 }
 
 int main()
@@ -279,7 +308,7 @@ int main()
 
     cpp::Vector2 ball_velocity{0.0f, 1.0f};
     cpp::Vector2 paddle_velocity{0.0f, 0.0f};
-    const float paddle_speed = 1.0f;
+    const float paddle_speed = 2.0f;
     auto left_press = false;
     auto right_press = false;
 
@@ -301,19 +330,32 @@ int main()
                     if (game_state == GameState::TITLE_SCREEN)
                     {
                         game_state = GameState::PLAYING;
-                        // Reset everything when starting from title screen
                         reset_ball(entities[1], ball_velocity);
                         reset_paddle(entities[0], paddle_velocity);
-                        left_press = false;   // Reset movement states
+                        reset_score();
+                        left_press = false;
                         right_press = false;
                     }
-                    else if (game_state == GameState::GAME_OVER)
+                    else if (game_state == GameState::GAME_OVER || game_state == GameState::WIN)
                     {
                         game_state = GameState::PLAYING;
-                        // Reset everything when restarting after game over
+                        // Reset everything
+                        entities.clear();  // Clear all entities
+                        entities.push_back({{{300.0f, 780.0f}, 300.0f, 20.0f}, 0xFFFFFF});  // Add paddle
+                        entities.push_back({{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF});  // Add ball
+                        
+                        // Recreate all bricks
+                        create_brick_row(entities, 50.0f, 0xff0000);
+                        create_brick_row(entities, 80.0f, 0xff0000);
+                        create_brick_row(entities, 110.0f, 0xffa500);
+                        create_brick_row(entities, 140.0f, 0xffa500);
+                        create_brick_row(entities, 170.0f, 0x00ff00);
+                        create_brick_row(entities, 200.0f, 0x00ff00);
+                        
                         reset_ball(entities[1], ball_velocity);
                         reset_paddle(entities[0], paddle_velocity);
-                        left_press = false;   // Reset movement states
+                        reset_score();
+                        left_press = false;
                         right_press = false;
                     }
                 }
@@ -374,10 +416,18 @@ int main()
                     {
                         game_state = GameState::GAME_OVER;
                     }
+                    else if (check_win_condition(entities))
+                    {
+                        game_state = GameState::WIN;
+                    }
                 }
 
                 // Render game entities
                 window.render(entities);
+
+                // Render score at top of screen
+                std::string score_text = "Score: " + std::to_string(current_score);
+                window.render_text(score_text, 10, 10, 24, 0xFFFFFF);  // White color
                 break;
             }
             case GameState::GAME_OVER:
@@ -385,9 +435,26 @@ int main()
                 // Render game entities in background
                 window.render(entities);
                 
-                // Render game over screen
-                window.render_text("Game Over!", 200, 300, 72);
-                window.render_text("Press Space to Restart", 200, 400, 36);
+                // Render game over screen with final score
+                window.render_text("Game Over!", 200, 250, 72);
+                std::string final_score = "Final Score: " + std::to_string(current_score);
+                window.render_text(final_score, 200, 350, 48, 0xFFFF00);  // Yellow color
+                window.render_text("Press Space to Restart", 200, 450, 36);
+                break;
+            }
+            case GameState::WIN:
+            {
+                // Render game entities in background
+                window.render(entities);
+                
+                // Semi-transparent overlay
+                window.render_overlay(0x000000, 180);
+
+                // Render win screen with final score
+                window.render_text("YOU WIN!", 200, 250, 72, 0x00FF00);  // Green color
+                std::string final_score = "Final Score: " + std::to_string(current_score);
+                window.render_text(final_score, 200, 350, 48, 0xFFFF00);  // Yellow color
+                window.render_text("Press Space to Play Again", 180, 450, 36, 0xFFFFFF);
                 break;
             }
         }
