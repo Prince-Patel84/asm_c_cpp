@@ -68,36 +68,17 @@ A classic arcade-style BreakOut game built with modern C++ and SDL2. Break all t
 
 ```mermaid
 graph TD
-    A[Title Screen] -->|Space| B[Playing]
-    B -->|All Bricks Destroyed| C[Win Screen]
-    B -->|Ball Lost| D[Game Over]
-    C -->|Space| A
-    D -->|Space| A
-    
-    subgraph Title Screen
-    A1[Show High Score]
-    A2[Animated Title]
-    A3[Press Space Prompt]
-    end
-    
-    subgraph Playing
-    B1[Move Paddle]
-    B2[Ball Physics]
-    B3[Break Bricks]
-    B4[Update Score]
-    B5[Increase Ball Speed]
-    end
-    
-    subgraph Win Screen
-    C1[Show Final Score]
-    C2[Update High Score]
-    C3[Victory Message]
-    end
-    
-    subgraph Game Over
-    D1[Show Final Score]
-    D2[Game Over Message]
-    end
+    Start[Start Game] -->|Initialize| Init[Initialize Game State]
+    Init -->|Enter Main Loop| Loop[Game Loop]
+    Loop -->|Process Input| Input[Handle Player Input]
+    Input -->|Update| Update[Update Game State]
+    Update -->|Render| Render[Render Graphics]
+    Render -->|Check| Check[Check Game State]
+    Check -->|Win Condition Met| Win[Display Win Screen]
+    Check -->|Game Over Condition Met| GameOver[Display Game Over Screen]
+    Check -->|Continue| Loop
+    Win -->|Restart| Start
+    GameOver -->|Restart| Start
 ```
 
 ## 📁 Project Structure
