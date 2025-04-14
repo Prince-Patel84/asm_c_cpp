@@ -38,25 +38,52 @@ const int BRICK_POINTS = 100;  // Points per brick destroyed
 int high_score = 0;
 const std::string HIGH_SCORE_FILE = "highscore.txt";
 
+// Add near other global variables
+struct Brick {
+    cpp::Entity entity;
+    int hits_required;
+};
+
+// Different brick colors based on hits required
+const uint32_t BRICK_COLORS[] = {
+    0x00FF00,  // Green (1 hit)
+    0xFFA500,  // Orange (2 hits)
+    0xFF0000   // Red (3 hits)
+};
+
+// Points awarded based on brick strength
+const int BRICK_POINTS_BY_STRENGTH[] = {
+    100,  // 1-hit brick
+    200,  // 2-hit brick
+    300   // 3-hit brick
+};
+
+// Add near other global variables
+const float INITIAL_BALL_SPEED = 2.0f;
+const float MAX_BALL_SPEED = 4.0f;
+const float SPEED_INCREMENT = 0.1f;
+float current_ball_speed = INITIAL_BALL_SPEED;
+
 /**
  * Helper function to create a row of 10 bricks.
  *
- * @param entities
+ * @param bricks
  *   Collection to add new entities to.
  *
  * @param y
  *   Y coordinate of row.
  *
- * @param colour
- *   Colour of bricks.
+ * @param hits_required
+ *   Number of hits required to destroy the brick
  */
-void create_brick_row(std::vector<cpp::Entity> &entities, float y, const cpp::Colour &colour)
+void create_brick_row(std::vector<Brick> &bricks, float y, int hits_required)
 {
     auto x = 20.0f;
-
+    
     for (auto i = 0u; i < 10u; ++i)
     {
-        entities.push_back({{{x, y}, 58.0f, 20.0f}, colour});
+        cpp::Entity entity{{{x, y}, 58.0f, 20.0f}, BRICK_COLORS[hits_required - 1]};
+        bricks.push_back({entity, hits_required});
         x += 78.0f;
     }
 }
@@ -73,16 +100,16 @@ void create_brick_row(std::vector<cpp::Entity> &entities, float y, const cpp::Co
  * @param paddle
  *   Paddle to check for collisions with.
  *
- * @param entities
+ * @param bricks
  *   Collection of all entities, brick entities will be removed if a collision is detected.
  */
 void check_collisions(
     const cpp::Entity &ball,
     cpp::Vector2 &ball_velocity,
     const cpp::Entity &paddle,
-    std::vector<cpp::Entity> &entities)
+    std::vector<Brick> &bricks)
 {
-    // check and handle ball and paddle collision
+    // Paddle collision
     if (paddle.intersects(ball))
     {
         const auto ball_pos = ball.rectangle().position;
@@ -90,37 +117,57 @@ void check_collisions(
 
         if (ball_pos.x < paddle_pos.x + 100.0f)
         {
-            ball_velocity.x = -1.4f;
-            ball_velocity.y = -1.4f;
+            ball_velocity.x = -current_ball_speed * 0.7f;
+            ball_velocity.y = -current_ball_speed * 0.7f;
         }
         else if (ball_pos.x < paddle_pos.x + 200.0f)
         {
             ball_velocity.x = 0.0f;
-            ball_velocity.y = -2.0f;
+            ball_velocity.y = -current_ball_speed;
         }
         else
         {
-            ball_velocity.x = 1.4f;
-            ball_velocity.y = -1.4f;
+            ball_velocity.x = current_ball_speed * 0.7f;
+            ball_velocity.y = -current_ball_speed * 0.7f;
         }
     }
     else
     {
-        // only check brick intersections if we didn't intersect the paddle, unlikely these will both happen in the same
-        // frame due to the layout of the game
-
-        // iterate over all entities, skipping the first two as these are the paddle and ball
-        auto bricks_view = entities | std::views::drop(2u);
-        auto hit_brick =
-            std::ranges::find_if(bricks_view, [&ball](const auto &brick) { return ball.intersects(brick); });
-
-        if (hit_brick != std::ranges::end(bricks_view))
+        // Check brick collisions
+        for (auto it = bricks.begin(); it != bricks.end(); ++it)
         {
-            // Add score when brick is destroyed
-            current_score += BRICK_POINTS;
-            
-            ball_velocity.y *= -1.0f;
-            entities.erase(hit_brick);
+            if (it->entity.intersects(ball))
+            {
+                // Reduce hits required and update color
+                it->hits_required--;
+                
+                if (it->hits_required <= 0)
+                {
+                    // Add score based on original brick strength
+                    current_score += BRICK_POINTS_BY_STRENGTH[it->hits_required];
+                    bricks.erase(it);
+                    
+                    // Increase ball speed
+                    current_ball_speed = std::min(current_ball_speed + SPEED_INCREMENT, MAX_BALL_SPEED);
+                    
+                    // Adjust current velocity to match new speed while maintaining direction
+                    float current_speed = std::sqrt(ball_velocity.x * ball_velocity.x + 
+                                                  ball_velocity.y * ball_velocity.y);
+                    ball_velocity.x = (ball_velocity.x / current_speed) * current_ball_speed;
+                    ball_velocity.y = (ball_velocity.y / current_speed) * current_ball_speed;
+                }
+                else
+                {
+                    // Update brick color based on remaining hits
+                    it->entity = cpp::Entity{
+                        it->entity.rectangle(),
+                        BRICK_COLORS[it->hits_required - 1]
+                    };
+                }
+                
+                ball_velocity.y *= -1.0f;
+                break;
+            }
         }
     }
 }
@@ -192,7 +239,7 @@ bool is_game_over(const cpp::Entity &ball)
 void reset_ball(cpp::Entity &ball, cpp::Vector2 &ball_velocity)
 {
     ball = cpp::Entity{{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF};
-    ball_velocity = cpp::Vector2{0.0f, 2.0f};
+    ball_velocity = cpp::Vector2{0.0f, current_ball_speed};
 }
 
 /**
@@ -276,16 +323,15 @@ void reset_score()
 /**
  * Helper function to check if all bricks are destroyed
  *
- * @param entities
+ * @param bricks
  *   Collection of all entities
  *
  * @returns
  *   True if no bricks remain, false otherwise
  */
-bool check_win_condition(const std::vector<cpp::Entity> &entities)
+bool check_win_condition(const std::vector<Brick> &bricks)
 {
-    // Skip first two entities (paddle and ball)
-    return entities.size() <= 2;
+    return bricks.empty();
 }
 
 // Helper function to load high score
@@ -314,6 +360,17 @@ void update_high_score() {
     }
 }
 
+// Add this helper function in the anonymous namespace
+void render_entity(const cpp::Window& window, const cpp::Entity& entity) {
+    std::vector<cpp::Entity> temp{entity};
+    window.render(temp);
+}
+
+// Helper function to reset ball speed
+void reset_ball_speed() {
+    current_ball_speed = INITIAL_BALL_SPEED;
+}
+
 }
 
 int main()
@@ -329,15 +386,18 @@ int main()
     // Initialize game state to title screen
     GameState game_state = GameState::TITLE_SCREEN;
 
-    std::vector<cpp::Entity> entities{
-        {{{300.0f, 780.0f}, 300.0f, 20.0f}, 0xFFFFFF}, {{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF}};
+    // Change entities vector to separate paddle, ball, and bricks
+    cpp::Entity paddle{{{300.0f, 780.0f}, 300.0f, 20.0f}, 0xFFFFFF};
+    cpp::Entity ball{{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF};
+    std::vector<Brick> bricks;
 
-    create_brick_row(entities, 50.0f, 0xff0000);
-    create_brick_row(entities, 80.0f, 0xff0000);
-    create_brick_row(entities, 110.0f, 0xffa500);
-    create_brick_row(entities, 140.0f, 0xffa500);
-    create_brick_row(entities, 170.0f, 0x00ff00);
-    create_brick_row(entities, 200.0f, 0x00ff00);
+    // Create rows with different hit requirements
+    create_brick_row(bricks, 50.0f, 3);  // Red bricks (3 hits)
+    create_brick_row(bricks, 80.0f, 3);
+    create_brick_row(bricks, 110.0f, 2); // Orange bricks (2 hits)
+    create_brick_row(bricks, 140.0f, 2);
+    create_brick_row(bricks, 170.0f, 1); // Green bricks (1 hit)
+    create_brick_row(bricks, 200.0f, 1);
 
     cpp::Vector2 ball_velocity{0.0f, 1.0f};
     cpp::Vector2 paddle_velocity{0.0f, 0.0f};
@@ -363,8 +423,9 @@ int main()
                     if (game_state == GameState::TITLE_SCREEN)
                     {
                         game_state = GameState::PLAYING;
-                        reset_ball(entities[1], ball_velocity);
-                        reset_paddle(entities[0], paddle_velocity);
+                        reset_ball_speed();
+                        reset_ball(ball, ball_velocity);
+                        reset_paddle(paddle, paddle_velocity);
                         reset_score();
                         left_press = false;
                         right_press = false;
@@ -373,20 +434,19 @@ int main()
                     {
                         game_state = GameState::PLAYING;
                         // Reset everything
-                        entities.clear();  // Clear all entities
-                        entities.push_back({{{300.0f, 780.0f}, 300.0f, 20.0f}, 0xFFFFFF});  // Add paddle
-                        entities.push_back({{{420.0f, 400.0f}, 10.0f, 10.0f}, 0xFFFFFF});  // Add ball
+                        bricks.clear();
                         
                         // Recreate all bricks
-                        create_brick_row(entities, 50.0f, 0xff0000);
-                        create_brick_row(entities, 80.0f, 0xff0000);
-                        create_brick_row(entities, 110.0f, 0xffa500);
-                        create_brick_row(entities, 140.0f, 0xffa500);
-                        create_brick_row(entities, 170.0f, 0x00ff00);
-                        create_brick_row(entities, 200.0f, 0x00ff00);
+                        create_brick_row(bricks, 50.0f, 3);
+                        create_brick_row(bricks, 80.0f, 3);
+                        create_brick_row(bricks, 110.0f, 2);
+                        create_brick_row(bricks, 140.0f, 2);
+                        create_brick_row(bricks, 170.0f, 1);
+                        create_brick_row(bricks, 200.0f, 1);
                         
-                        reset_ball(entities[1], ball_velocity);
-                        reset_paddle(entities[0], paddle_velocity);
+                        reset_ball_speed();
+                        reset_ball(ball, ball_velocity);
+                        reset_paddle(paddle, paddle_velocity);
                         reset_score();
                         left_press = false;
                         right_press = false;
@@ -417,7 +477,15 @@ int main()
         {
             case GameState::TITLE_SCREEN:
             {
-                render_title_screen(window, title_animation_time, entities);
+                // Create a vector with all entities for the background
+                std::vector<cpp::Entity> all_entities;
+                all_entities.push_back(paddle);
+                all_entities.push_back(ball);
+                for (const auto& brick : bricks) {
+                    all_entities.push_back(brick.entity);
+                }
+                
+                render_title_screen(window, title_animation_time, all_entities);
                 // Add high score display on title screen
                 std::string high_score_text = "High Score: " + std::to_string(high_score);
                 window.render_text(high_score_text, 300, 600, 36, 0xFFD700); // Gold color
@@ -439,28 +507,29 @@ int main()
                     paddle_velocity.x = paddle_speed;
                 }
 
+                // Update entities
+                update_paddle(paddle, paddle_velocity);
+                update_ball(ball, ball_velocity);
+                check_collisions(ball, ball_velocity, paddle, bricks);
+
+                if (is_game_over(ball))
                 {
-                    auto &paddle = entities[0];
-                    auto &ball = entities[1];
-
-                    update_paddle(paddle, paddle_velocity);
-                    update_ball(ball, ball_velocity);
-                    check_collisions(ball, ball_velocity, paddle, entities);
-
-                    if (is_game_over(ball))
-                    {
-                        game_state = GameState::GAME_OVER;
-                    }
-                    else if (check_win_condition(entities))
-                    {
-                        game_state = GameState::WIN;
-                    }
+                    game_state = GameState::GAME_OVER;
+                }
+                else if (check_win_condition(bricks))
+                {
+                    game_state = GameState::WIN;
                 }
 
-                // Render game entities
-                window.render(entities);
+                // Render entities
+                render_entity(window, paddle);
+                render_entity(window, ball);
+                for (const auto& brick : bricks)
+                {
+                    render_entity(window, brick.entity);
+                }
 
-                // Display both current score and high score
+                // Display scores
                 std::string score_text = "Score: " + std::to_string(current_score);
                 window.render_text(score_text, 10, 10, 24, 0xFFFFFF);
                 std::string high_score_text = "High Score: " + std::to_string(high_score);
@@ -469,7 +538,12 @@ int main()
             }
             case GameState::GAME_OVER:
             {
-                window.render(entities);
+                render_entity(window, paddle);
+                render_entity(window, ball);
+                for (const auto& brick : bricks)
+                {
+                    render_entity(window, brick.entity);
+                }
                 window.render_text("Game Over!", 200, 250, 72);
                 
                 // Update high score before displaying
@@ -487,7 +561,12 @@ int main()
             }
             case GameState::WIN:
             {
-                window.render(entities);
+                render_entity(window, paddle);
+                render_entity(window, ball);
+                for (const auto& brick : bricks)
+                {
+                    render_entity(window, brick.entity);
+                }
                 window.render_overlay(0x000000, 180);
                 window.render_text("YOU WIN!", 200, 250, 72, 0x00FF00);
                 
