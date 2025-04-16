@@ -64,6 +64,9 @@ const float MAX_BALL_SPEED = 4.0f;
 const float SPEED_INCREMENT = 0.1f;
 float current_ball_speed = INITIAL_BALL_SPEED;
 
+// Add this new variable to scale paddle speed with ball speed
+const float PADDLE_SPEED_MULTIPLIER = 0.5f; // Adjust this multiplier as needed
+
 /**
  * Helper function to create a row of 10 bricks.
  *
@@ -122,7 +125,7 @@ void check_collisions(
         }
         else if (ball_pos.x < paddle_pos.x + 200.0f)
         {
-            ball_velocity.x = 0.0f;
+            // ball_velocity.x = 0.0f;
             ball_velocity.y = -current_ball_speed;
         }
         else
@@ -188,12 +191,12 @@ void update_ball(cpp::Entity &ball, cpp::Vector2 &velocity)
 
     const auto ball_pos = ball.rectangle().position;
 
-    if ((ball_pos.y > 800.0f) || (ball_pos.y < 0.0f))
+    if (ball_pos.y < 0.0f)
     {
         velocity.y *= -1.0f;
     }
 
-    if ((ball_pos.x > 800.0f) || (ball_pos.x < 0.0f))
+    if ((ball_pos.x + 10.0f > 800.0f) || (ball_pos.x < 0.0f))
     {
         velocity.x *= -1.0f;
     }
@@ -210,7 +213,9 @@ void update_ball(cpp::Entity &ball, cpp::Vector2 &velocity)
  */
 void update_paddle(cpp::Entity &paddle, const cpp::Vector2 &velocity)
 {
-    paddle.translate(velocity);
+    // Calculate paddle speed based on current ball speed
+    float paddle_speed = current_ball_speed * PADDLE_SPEED_MULTIPLIER;
+    paddle.translate(cpp::Vector2{velocity.x * paddle_speed, 0.0f});
 }
 
 /**
